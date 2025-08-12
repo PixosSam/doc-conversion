@@ -3,7 +3,7 @@ import stream from 'stream';
 import { getBrowser } from './browser';
 import { PaperFormat } from 'puppeteer';
 import { body, ContextRunner, oneOf } from 'express-validator';
-import marked from 'marked';
+import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom'
 const { window } = new JSDOM('<!DOCTYPE html>')
@@ -169,6 +169,10 @@ app.post<any,any,any,FileRequest<MdPdfBody>>("/v1/convert/md/pdf",
 // });
 
 const PORT = process.env.PORT || "3000";
-app.listen(PORT, () => {
-    console.log(`Serving on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`Serving on port ${PORT}`);
+    });
+}
+
+export default app;
