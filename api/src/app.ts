@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 import stream from 'stream';
 import { getBrowser } from './browser';
-import { PaperFormat } from 'puppeteer';
+import { PaperFormat, ScreenshotClip } from 'puppeteer';
 import { body, ContextRunner, oneOf } from 'express-validator';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -32,8 +32,64 @@ type HtmlPdfBody = {
     header?: string,
     footer?: string
 };
-
 type MdPdfBody = HtmlPdfBody;
+
+type HtmlImageBody = {
+    source?: string,
+    viewport?: {
+        width?: number,
+        height?: number
+    },
+    region?: ScreenshotClip
+};
+
+const tryGet = <T>(fn: () => T): T | undefined => {
+    try {
+        return fn();
+    }
+    catch {
+        return undefined;
+    }
+};
+
+const htmlToImage = async (body: HtmlImageBody): Promise<Uint8Array<ArrayBufferLike>> => {
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+
+    let viewport = {width: 1920, height: 1080};
+    if(body.viewport) {
+        viewport = { ...viewport, ...body.viewport };
+    }
+
+    await page.setViewport(viewport);
+
+    if(body.source && body.source.startsWith("http")){
+        await page.goto(body.source, {
+            waitUntil: "networkidle2",
+            timeout: 10000
+        });
+    }
+    else if (body.source) {
+        await page.setContent(body.source, {
+            waitUntil: "networkidle2",
+            timeout: 10000
+        });
+    }
+
+    const image = await page.screenshot({
+        encoding: 'binary',
+        captureBeyondViewport: false,
+        clip: tryGet(() => body.region),
+        type: 'png',
+        quality: undefined,
+        omitBackground: false,
+        optimizeForSpeed: false,
+        fullPage: true
+    });
+    await page.close();
+
+    return image;
+};
 
 const htmlToPdf = async (body: HtmlPdfBody) => {
     const browser = await getBrowser();
@@ -128,10 +184,21 @@ const htmlToPdfValidation = [
     body("footer").optional().isString()
 ];
 
+const htmlImageValidation = [
+    body("source").notEmpty()
+];
+
 app.post<any,any,any,FileRequest<HtmlPdfBody>>("/v1/convert/html/pdf", 
     validate(htmlToPdfValidation),
     async (req, res) => {
         const pdf = await htmlToPdf(req.body);
+        writeFileResponse(req.body, Buffer.from(pdf), res);
+});
+
+app.post<any,any,any,FileRequest<HtmlImageBody>>("/v1/convert/html/image", 
+    validate(htmlImageValidation),
+    async (req, res) => {
+        const pdf = await htmlToImage(req.body);
         writeFileResponse(req.body, Buffer.from(pdf), res);
 });
 
