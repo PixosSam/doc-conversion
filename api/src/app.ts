@@ -6,8 +6,8 @@ import { body, ContextRunner, oneOf } from 'express-validator';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom'
-const { window } = new JSDOM('<!DOCTYPE html>')
-const domPurify = DOMPurify(window)
+const { window } = new JSDOM('<!DOCTYPE html>');
+const domPurify = DOMPurify(window);
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -40,7 +40,9 @@ type HtmlImageBody = {
         width?: number,
         height?: number
     },
-    region?: ScreenshotClip
+    region?: ScreenshotClip,
+    type?: 'jpeg' | 'png' | 'webp',
+    quality?: number
 };
 
 const tryGet = <T>(fn: () => T): T | undefined => {
@@ -80,8 +82,8 @@ const htmlToImage = async (body: HtmlImageBody): Promise<Uint8Array<ArrayBufferL
         encoding: 'binary',
         captureBeyondViewport: false,
         clip: tryGet(() => body.region),
-        type: 'png',
-        quality: undefined,
+        type: body.type || 'jpeg',
+        quality: ["jpeg", "webp"].includes(body.type) ? body.quality : undefined ,
         omitBackground: false,
         optimizeForSpeed: false,
         fullPage: true
@@ -185,7 +187,19 @@ const htmlToPdfValidation = [
 ];
 
 const htmlImageValidation = [
-    body("source").notEmpty()
+    body("source").notEmpty(),
+    body("region").optional().isObject(),
+    body("region.width").if(body("region").isObject()).isInt(),
+    body("region.height").if(body("region").isObject()).isInt(),
+    body("region.x").if(body("region").isObject()).isInt(),
+    body("region.y").if(body("region").isObject()).isInt(),
+    body("region.scale").if(body("region").isObject()).optional().isNumeric(),
+    body("viewport").optional().isObject(),
+    body("viewport.width").optional().isInt(),
+    body("viewport.height").optional().isInt(),
+    body("type").optional().isIn(["png","jpeg","webp"]),
+    body("quality").optional().isInt({ min: 1, max: 100 })
+
 ];
 
 app.post<any,any,any,FileRequest<HtmlPdfBody>>("/v1/convert/html/pdf", 
