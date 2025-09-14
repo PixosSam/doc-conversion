@@ -93,7 +93,7 @@ const htmlToImage = async (body: HtmlImageBody): Promise<Uint8Array<ArrayBufferL
     return image;
 };
 
-const htmlToPdf = async (body: HtmlPdfBody) => {
+const htmlToPdf = async (body: HtmlPdfBody): Promise<Uint8Array<ArrayBufferLike>> => {
     const browser = await getBrowser();
     const page = await browser.newPage();
 
@@ -199,7 +199,6 @@ const htmlImageValidation = [
     body("viewport.height").optional().isInt(),
     body("type").optional().isIn(["png","jpeg","webp"]),
     body("quality").optional().isInt({ min: 1, max: 100 })
-
 ];
 
 app.post<any,any,any,FileRequest<HtmlPdfBody>>("/v1/convert/html/pdf", 
@@ -216,14 +215,14 @@ app.post<any,any,any,FileRequest<HtmlImageBody>>("/v1/convert/html/image",
         writeFileResponse(req.body, Buffer.from(pdf), res);
 });
 
-app.post<any,any,any,FileRequest<MdPdfBody>>("/v1/convert/md/pdf", 
-    validate(htmlToPdfValidation),
-    async (req, res) => {
-        const html = await mdToHtml(req.body.source || "");
-        req.body.source = html;
-        const pdf = await htmlToPdf(req.body);
-        writeFileResponse(req.body, Buffer.from(pdf), res);
-});
+// app.post<any,any,any,FileRequest<MdPdfBody>>("/v1/convert/md/pdf", 
+//     validate(htmlToPdfValidation),
+//     async (req, res) => {
+//         const html = await mdToHtml(req.body.source || "");
+//         req.body.source = html;
+//         const pdf = await htmlToPdf(req.body);
+//         writeFileResponse(req.body, Buffer.from(pdf), res);
+// });
 
 // app.post<any,any,any,FileRequest<HtmlPdfBody>>("/v1/convert/json/pdf", 
 //     validate([]),
